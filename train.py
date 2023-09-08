@@ -31,7 +31,7 @@ class DSet(AbstractDataset):
         self.data = []
         for line in labels:
             data = json.loads(line)
-            img_name = data['filename'].replace('data/', 'data2/')
+            img_name = data['filename'].replace('data2/', 'data/')
             label = data['text']
             if not os.path.exists(os.path.join(self.root, img_name)):
                 continue

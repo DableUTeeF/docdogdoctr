@@ -63,7 +63,7 @@ def fit_one_epoch(model, train_loader, batch_transforms, optimizer, scheduler, e
 
 
 @torch.no_grad()
-def evaluate(model, val_loader, batch_transforms, val_metric, writer):
+def evaluate(model, val_loader, batch_transforms, val_metric, epoch, writer):
     # Model in eval mode
     model.eval()
     # Reset val metric
@@ -97,7 +97,7 @@ if __name__ == '__main__':
     workers = 1
     input_size = 48
     weight_decay = 1e-6
-    lr = 1e-3
+    lr = 1e-4
     epochs = 10
     arch = 'vitstr_base'
     exp_name = 'tt1'
@@ -135,7 +135,15 @@ if __name__ == '__main__':
                 RandomPerspective(distortion_scale=0.2, p=0.3),
             ]
         ))
-    val_set = DSet(img_folder=src_dir, labels=labels[450000:])
+    val_set = DSet(
+        img_folder=src_dir, 
+        labels=labels[450000:],
+        img_transforms=Compose(
+            [
+                T.Resize((input_size, 4 * input_size), preserve_aspect_ratio=True),
+            ]
+        )
+    )
     train_loader = DataLoader(
         train_set,
         batch_size=batch_size,
@@ -174,5 +182,5 @@ if __name__ == '__main__':
         val_loss, exact_match, partial_match = evaluate(model, val_loader, batch_transforms, val_metric, epoch, writer)
         if val_loss < min_loss:
             print(f"Validation loss decreased {min_loss:.6} --> {val_loss:.6}: saving state...")
-            torch.save(model.state_dict(), f"{workdir}/{arch}/{epoch:02d}.pt")
+            torch.save(model.state_dict(), f"{workdir}/{arch}{lr}/{epoch:02d}.pt")
             min_loss = val_loss

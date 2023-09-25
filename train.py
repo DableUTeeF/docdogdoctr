@@ -31,9 +31,11 @@ class DSet(AbstractDataset):
         self.data = []
         for line in labels:
             data = json.loads(line)
-            img_name = data['filename'].replace('data2/', 'data/')
+            img_name = data['filename']
             label = data['text']
             if not os.path.exists(os.path.join(self.root, img_name)):
+                print(os.path.join(self.root, img_name))
+                raise Exception
                 continue
             self.data.append((img_name, label))
 
@@ -97,7 +99,7 @@ if __name__ == '__main__':
     workers = 1
     input_size = 48
     weight_decay = 1e-6
-    lr = 1e-4
+    lr = 1e-3
     epochs = 10
     arch = 'vitstr_base'
     exp_name = 'tt1'
@@ -107,9 +109,9 @@ if __name__ == '__main__':
     charset = [x.split('	')[1] for x in charmap]
     vocabs = ''.join(charset)
 
-    jsonl = 'data/train.jsonl'
+    jsonl = 'data/val.jsonl'
     if os.path.exists("/project/lt200060-capgen/coco"):
-        src_dir = "/project/lt200060-capgen/palm/capocr"
+        src_dir = "/project/lt200060-capgen/palm/capocr/data2"
         workdir = 'workdir'
     elif os.path.exists("/media/palm/Data/capgen/"):
         src_dir = "/media/palm/Data/ocr/"
@@ -121,7 +123,7 @@ if __name__ == '__main__':
     batch_transforms = Normalize(mean=(0.694, 0.695, 0.693), std=(0.299, 0.296, 0.301))
     train_set = DSet(
         img_folder=src_dir,
-        labels=labels[:450000],
+        labels=labels[100000:],
         img_transforms=Compose(
             [
                 T.Resize((input_size, 4 * input_size), preserve_aspect_ratio=True),
@@ -137,7 +139,7 @@ if __name__ == '__main__':
         ))
     val_set = DSet(
         img_folder=src_dir, 
-        labels=labels[450000:],
+        labels=labels[:100000],
         img_transforms=Compose(
             [
                 T.Resize((input_size, 4 * input_size), preserve_aspect_ratio=True),
@@ -169,18 +171,31 @@ if __name__ == '__main__':
         eps=1e-6,
         weight_decay=weight_decay,
     )
+    cp = torch.load('/project/lt200060-capgen/palm/docdogdoctr/workdir/vitstr_base0.001/05.pt')
+    model.load_state_dict(cp['model'])
+    optimizer.load_state_dict(cp['optimizer'])
+    
     scheduler = CosineAnnealingLR(optimizer, epochs * len(train_loader), eta_min=lr / 25e4)
 
     val_metric = TextMatch()
     writer = SummaryWriter(log_dir=f'log/{time.time()}')
 
     min_loss = np.inf
+    start_epoch = 5
     for epoch in range(epochs):
+        if epoch <= start_epoch:
+            scheduler.step()
+            continue
         fit_one_epoch(model, train_loader, batch_transforms, optimizer, scheduler, epoch, writer)
 
         # Validation loop at the end of each epoch
         val_loss, exact_match, partial_match = evaluate(model, val_loader, batch_transforms, val_metric, epoch, writer)
         if val_loss < min_loss:
             print(f"Validation loss decreased {min_loss:.6} --> {val_loss:.6}: saving state...")
-            torch.save(model.state_dict(), f"{workdir}/{arch}{lr}/{epoch:02d}.pt")
             min_loss = val_loss
+        torch.save(
+            {'model': model.state_dict(),
+             'optimizer': optimizer.state_dict()}, 
+                   
+                   f"{workdir}/{arch}{lr}/{epoch:02d}.pt")
+

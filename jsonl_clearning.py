@@ -11,19 +11,19 @@ def sub(text):
 
 
 if __name__ == '__main__':
-    src_dir = "/media/palm/Data/ocr/"
-    charmap = open('/home/palm/PycharmProjects/ABINet/data/charset_enth.txt').read().split('\n')
+    # src_dir = "/media/palm/Data/ocr/"
+    charmap = open('data/charset_enth.txt').read().split('\n')
     charset = [x.split('	')[1] for x in charmap]
     vocabs = ''.join(charset)
-    jsonl = '/home/palm/PycharmProjects/capocr/data/train.jsonl'
+    jsonl = '/project/lt200060-capgen/palm/capocr/data2/val.jsonl'
     labels = open(jsonl).read().split('\n')[:-1]
-    with open('data/train.jsonl', 'w') as wr:
+    with open('data/val.jsonl', 'w') as wr:
         for line in labels:
             data = json.loads(line)
             img_name = data['filename'].replace('data/', 'data2/')
             label = data['text']
-            if not os.path.exists(os.path.join(src_dir, img_name)):
-                continue
+            # if not os.path.exists(os.path.join(src_dir, img_name)):
+            #     continue
             label = sub(label)
             wr.write(json.dumps({'filename': img_name, 'text': label}))
             wr.write('\n')
